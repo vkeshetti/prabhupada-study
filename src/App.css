@@ -1,0 +1,417 @@
+* {
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+  margin: 0;
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+.app-container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.header h1 {
+  font-size: 1.35rem;
+  margin-bottom: 12px;
+  color: #0f172a;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tabs button {
+  flex: 1;
+  padding: 10px;
+  background: #e2e8f0;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tabs button.active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.study-form {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+input, select, textarea {
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.radio-group {
+  display: flex;
+  gap: 16px;
+}
+
+.radio-label {
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.save-button {
+  padding: 12px;
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.save-button:disabled {
+  background: #94a3b8;
+}
+
+.entries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.entry-card {
+  background: #ffffff;
+  padding: 18px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.badge-source {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+.badge-type {
+  font-size: 0.75rem;
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #64748b;
+}
+
+.passage-text {
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.5;
+  margin: 8px 0;
+  color: #334155;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.tag-chip {
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 0.8rem;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.section-block {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.reflection-block {
+  background: #fefce8;
+  border-left: 3px solid #eab308;
+}
+
+.action-block {
+  background: #f0fdf4;
+  border-left: 3px solid #22c55e;
+}
+
+.question-block {
+  background: #f5f3ff;
+  border-left: 3px solid #8b5cf6;
+}
+
+.relative {
+  position: relative;
+}
+
+.autocomplete-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+  z-index: 10;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.autocomplete-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.autocomplete-item:hover {
+  background: #f8fafc;
+  color: #2563eb;
+}
+
+.search-panel {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.search-bar-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+}
+
+.toggle-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.filter-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filter-row select {
+  flex: 1;
+  min-width: 140px;
+}
+
+.active-tag-filter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #eff6ff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.active-tag-filter button {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clickable:hover {
+  background: #dbeafe;
+}
+
+.card-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.star-button {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  color: #94a3b8;
+}
+
+.star-button.starred {
+  color: #eab308;
+}
+
+.error-text {
+  color: #ef4444;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.guide-card {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.guide-card h2 {
+  margin-top: 0;
+}
+
+.guide-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.guide-table th, .guide-table td {
+  text-align: left;
+  padding: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.guide-table code {
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #d97706;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.backup-btn {
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.backup-btn:hover {
+  background: #334155;
+}
+
+.revision-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.action-button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.action-button.primary {
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+.action-button.primary:hover {
+  background: #4338ca;
+}
+
+.action-button.secondary {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.action-button.secondary:hover {
+  background: #c7d2fe;
+}
+
+.revision-card {
+  border: 2px solid #818cf8;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+}
+
+.revision-passage {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin: 14px 0;
+  padding-left: 12px;
+  border-left: 3px solid #6366f1;
+}

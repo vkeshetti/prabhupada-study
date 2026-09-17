@@ -13,6 +13,9 @@ export default function App() {
   const [allTags, setAllTags] = useState([]);
   const [activeTab, setActiveTab] = useState('entries'); // 'entries' | 'add' | 'revision' | 'regex-help'
 
+  // Edit State
+  const [editingEntryId, setEditingEntryId] = useState(null);
+
   // Form State
   const [selectedBookId, setSelectedBookId] = useState('');
   const [canto, setCanto] = useState('');
@@ -36,7 +39,10 @@ export default function App() {
   const [filterTag, setFilterTag] = useState('');
   const [filterFavoritesOnly, setFilterFavoritesOnly] = useState(false);
 
-  // Revision / Random State
+  // Selective Export Selection State
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
+  // Revision State
   const [randomEntry, setRandomEntry] = useState(null);
 
   useEffect(() => {
@@ -49,7 +55,7 @@ export default function App() {
     const { data } = await supabase.from('books').select('*').order('title');
     if (data && data.length > 0) {
       setBooks(data);
-      setSelectedBookId(data[0].id);
+      if (!selectedBookId) setSelectedBookId(data[0].id);
     }
   }
 
@@ -90,30 +96,98 @@ export default function App() {
 
   const selectedBook = books.find((b) => b.id === selectedBookId);
 
+  function resetForm() {
+    setSelectedPassage('');
+    setReflection('');
+    setActionPoint('');
+    setQuestion('');
+    setTagsInput('');
+    setCanto('');
+    setChapter('');
+    setVerse('');
+    setPassageType('Paragraph');
+    setEditingEntryId(null);
+  }
+
+  function startEditing(entry) {
+    setEditingEntryId(entry.id);
+    setSelectedBookId(entry.book_id);
+    setCanto(entry.canto_or_part || '');
+    setChapter(entry.chapter || '');
+    setVerse(entry.verse_or_section || '');
+    setPassageType(entry.passage_type || 'Paragraph');
+    setSelectedPassage(entry.selected_passage || '');
+    setReflection(entry.reflection || '');
+    setActionPoint(entry.action_point || '');
+    setQuestion(entry.question || '');
+
+    const tags = entry.entry_tags?.map((t) => `#${t.tags?.name}`).join(' ') || '';
+    setTagsInput(tags);
+
+    setActiveTab('add');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function handleDeleteEntry(id) {
+    if (!window.confirm('Are you sure you want to delete this study entry? This cannot be undone.')) {
+      return;
+    }
+
+    const { error } = await supabase.from('study_entries').delete().eq('id', id);
+    if (error) {
+      alert('Failed to delete entry: ' + error.message);
+    } else {
+      setEntries((prev) => prev.filter((e) => e.id !== id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      if (randomEntry?.id === id) setRandomEntry(null);
+    }
+  }
+
   async function handleSaveEntry(e) {
     e.preventDefault();
     if (!selectedPassage.trim()) return alert('Please enter a passage.');
     setIsSaving(true);
 
     try {
-      const { data: entryData, error: entryError } = await supabase
-        .from('study_entries')
-        .insert({
-          book_id: selectedBookId,
-          canto_or_part: selectedBook?.has_cantos ? canto : null,
-          chapter: chapter || null,
-          verse_or_section: verse || null,
-          passage_type: passageType,
-          selected_passage: selectedPassage,
-          reflection: reflection || null,
-          action_point: actionPoint || null,
-          question: question || null,
-        })
-        .select()
-        .single();
+      let currentEntryId = editingEntryId;
 
-      if (entryError) throw entryError;
+      const payload = {
+        book_id: selectedBookId,
+        canto_or_part: selectedBook?.has_cantos ? canto : null,
+        chapter: chapter || null,
+        verse_or_section: verse || null,
+        passage_type: passageType,
+        selected_passage: selectedPassage,
+        reflection: reflection || null,
+        action_point: actionPoint || null,
+        question: question || null,
+        updated_at: new Date().toISOString(),
+      };
 
+      if (editingEntryId) {
+        const { error: updateError } = await supabase
+          .from('study_entries')
+          .update(payload)
+          .eq('id', editingEntryId);
+        if (updateError) throw updateError;
+
+        // Clear existing entry_tags to rebuild tags cleanly
+        await supabase.from('entry_tags').delete().eq('entry_id', editingEntryId);
+      } else {
+        const { data: entryData, error: insertError } = await supabase
+          .from('study_entries')
+          .insert(payload)
+          .select()
+          .single();
+        if (insertError) throw insertError;
+        currentEntryId = entryData.id;
+      }
+
+      // Process and attach tags
       const rawTags = tagsInput
         .split(/[,\s]+/)
         .map((t) => t.replace(/^#/, '').trim().toLowerCase())
@@ -140,20 +214,13 @@ export default function App() {
         if (tagData) {
           await supabase
             .from('entry_tags')
-            .insert({ entry_id: entryData.id, tag_id: tagData.id });
+            .insert({ entry_id: currentEntryId, tag_id: tagData.id });
         }
       }
 
-      setSelectedPassage('');
-      setReflection('');
-      setActionPoint('');
-      setQuestion('');
-      setTagsInput('');
-      setCanto('');
-      setChapter('');
-      setVerse('');
-      fetchEntries();
-      fetchTags();
+      resetForm();
+      await fetchEntries();
+      await fetchTags();
       setActiveTab('entries');
     } catch (err) {
       alert('Error saving entry: ' + err.message);
@@ -185,32 +252,91 @@ export default function App() {
     }
   }
 
-  // Random Entry Generator
   function pickRandomEntry(favoritesOnly = false) {
     let pool = entries;
     if (favoritesOnly) {
       pool = entries.filter((e) => e.is_favorite);
     }
     if (pool.length === 0) {
-      alert(
-        favoritesOnly
-          ? 'No favorite entries saved yet. Star some entries first!'
-          : 'No study entries available to review.'
-      );
+      alert(favoritesOnly ? 'No favorite entries saved yet.' : 'No entries found.');
       return;
     }
     const randomIndex = Math.floor(Math.random() * pool.length);
     setRandomEntry(pool[randomIndex]);
   }
 
-  // JSON Data Export
-  function exportBackupJSON() {
-    if (entries.length === 0) return alert('No study entries to export.');
-    const backupPayload = {
+  // Filter & Search Engine
+  const filteredEntries = useMemo(() => {
+    setRegexError('');
+    let compiledRegex = null;
+
+    if (isRegexMode && searchQuery.trim()) {
+      try {
+        compiledRegex = new RegExp(searchQuery, 'i');
+      } catch (err) {
+        setRegexError('Invalid regex: ' + err.message);
+        return [];
+      }
+    }
+
+    const rawQuery = searchQuery.trim().toLowerCase();
+    const normalizedQuery = rawQuery.startsWith('#') ? rawQuery.slice(1) : rawQuery;
+
+    return entries.filter((item) => {
+      if (filterFavoritesOnly && !item.is_favorite) return false;
+      if (filterBookId !== 'ALL' && item.book_id !== filterBookId) return false;
+      if (filterType !== 'ALL' && item.passage_type !== filterType) return false;
+
+      const itemTags = item.entry_tags?.map((t) => t.tags?.name?.toLowerCase()) || [];
+      if (filterTag && !itemTags.includes(filterTag.toLowerCase())) return false;
+
+      if (!searchQuery.trim()) return true;
+
+      const tagsSearchString = itemTags.map((t) => `#${t} ${t}`).join(' ');
+      const searchableFields = [
+        item.selected_passage || '',
+        item.reflection || '',
+        item.action_point || '',
+        item.question || '',
+        tagsSearchString,
+      ];
+
+      if (isRegexMode && compiledRegex) {
+        return searchableFields.some((field) => compiledRegex.test(field));
+      }
+
+      return (
+        searchableFields.some((field) => field.toLowerCase().includes(rawQuery)) ||
+        itemTags.some((t) => t.includes(normalizedQuery))
+      );
+    });
+  }, [entries, searchQuery, isRegexMode, filterBookId, filterType, filterTag, filterFavoritesOnly]);
+
+  // Selection Logic
+  function toggleSelectEntry(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function handleSelectAllFiltered() {
+    if (selectedIds.size === filteredEntries.length && filteredEntries.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredEntries.map((e) => e.id)));
+    }
+  }
+
+  // Export Selected / All Helpers
+  function getPayloadForExport(items) {
+    return {
       export_version: '1.0',
       exported_at: new Date().toISOString(),
-      total_entries: entries.length,
-      entries: entries.map((entry) => ({
+      total_entries: items.length,
+      entries: items.map((entry) => ({
         id: entry.id,
         book: entry.books?.title || null,
         canto_or_part: entry.canto_or_part,
@@ -227,103 +353,117 @@ export default function App() {
         updated_at: entry.updated_at,
       })),
     };
-
-    const blob = new Blob([JSON.stringify(backupPayload, null, 2)], {
-      type: 'application/json',
-    });
-    const downloadUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = downloadUrl;
-    anchor.download = `prabhupada-study-backup-${new Date()
-      .toISOString()
-      .slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(downloadUrl);
   }
 
-  // Filter & Search Engine
-  const filteredEntries = useMemo(() => {
-    setRegexError('');
-    let compiledRegex = null;
+  function exportJSON(itemsToExport, filenamePrefix = 'prabhupada-study') {
+    if (itemsToExport.length === 0) return alert('No entries selected for export.');
+    const payload = getPayloadForExport(itemsToExport);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filenamePrefix}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
-    if (isRegexMode && searchQuery.trim()) {
-      try {
-        compiledRegex = new RegExp(searchQuery, 'i');
-      } catch (err) {
-        setRegexError('Invalid regex syntax: ' + err.message);
-        return [];
-      }
-    }
+  function exportDoc(itemsToExport, filenamePrefix = 'prabhupada-study-notes') {
+    if (itemsToExport.length === 0) return alert('No entries selected for export.');
 
-    const rawQuery = searchQuery.trim().toLowerCase();
-    // Normalize query so searching with or without '#' works
-    const normalizedQuery = rawQuery.startsWith('#') ? rawQuery.slice(1) : rawQuery;
+    const entriesHtml = itemsToExport
+      .map((entry, idx) => {
+        const source = `${entry.books?.title || ''}${
+          entry.canto_or_part ? ` · Canto ${entry.canto_or_part}` : ''
+        }${entry.chapter ? ` · Ch ${entry.chapter}` : ''}${
+          entry.verse_or_section ? ` · Verse ${entry.verse_or_section}` : ''
+        }`;
+        const tags = entry.entry_tags?.map((t) => `#${t.tags?.name}`).join(' ') || '';
 
-    return entries.filter((item) => {
-      // 1. Favorites Filter
-      if (filterFavoritesOnly && !item.is_favorite) return false;
+        return `
+        <div style="margin-bottom: 28px; padding-bottom: 18px; border-bottom: 1px solid #d1d5db;">
+          <h3 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 14pt;">${idx + 1}. ${source}</h3>
+          <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 10pt;">Type: ${entry.passage_type} ${tags ? `| Tags: ${tags}` : ''}</p>
+          <div style="margin: 12px 0; padding: 12px; background: #f3f4f6; border-left: 4px solid #3b82f6; font-style: italic; font-size: 11pt;">
+            "${entry.selected_passage}"
+          </div>
+          ${
+            entry.reflection
+              ? `<p style="margin: 6px 0;"><strong>Reflection:</strong> ${entry.reflection}</p>`
+              : ''
+          }
+          ${
+            entry.action_point
+              ? `<p style="margin: 6px 0;"><strong>Action Point:</strong> ${entry.action_point}</p>`
+              : ''
+          }
+          ${
+            entry.question
+              ? `<p style="margin: 6px 0;"><strong>Question:</strong> ${entry.question}</p>`
+              : ''
+          }
+        </div>`;
+      })
+      .join('');
 
-      // 2. Book Filter
-      if (filterBookId !== 'ALL' && item.book_id !== filterBookId) return false;
+    const htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>Study Notes</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.5; color: #111827; }
+        </style>
+      </head>
+      <body>
+        <h1 style="color: #0f172a; border-bottom: 2px solid #0f172a; padding-bottom: 8px;">Srila Prabhupada Study Notes</h1>
+        <p style="color: #4b5563; font-size: 10pt;">Generated on ${new Date().toLocaleDateString()} · Total Records: ${itemsToExport.length}</p>
+        ${entriesHtml}
+      </body>
+      </html>
+    `;
 
-      // 3. Passage Type Filter
-      if (filterType !== 'ALL' && item.passage_type !== filterType) return false;
+    const blob = new Blob(['\ufeff' + htmlContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filenamePrefix}-${new Date().toISOString().slice(0, 10)}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
-      // 4. Tag Chip Filter (when clicking a badge)
-      const itemTags = item.entry_tags?.map((t) => t.tags?.name?.toLowerCase()) || [];
-      if (filterTag && !itemTags.includes(filterTag.toLowerCase())) return false;
-
-      // 5. Query Search
-      if (!searchQuery.trim()) return true;
-
-      // Formatted tags string containing both "dharma" and "#dharma"
-      const tagsSearchString = itemTags.map((t) => `#${t} ${t}`).join(' ');
-
-      const searchableFields = [
-        item.selected_passage || '',
-        item.reflection || '',
-        item.action_point || '',
-        item.question || '',
-        tagsSearchString,
-      ];
-
-      if (isRegexMode && compiledRegex) {
-        return searchableFields.some((field) => compiledRegex.test(field));
-      }
-
-      // Check standard text search against fields, or tag match
-      return (
-        searchableFields.some((field) => field.toLowerCase().includes(rawQuery)) ||
-        itemTags.some((t) => t.includes(normalizedQuery))
-      );
-    });
-  }, [entries, searchQuery, isRegexMode, filterBookId, filterType, filterTag, filterFavoritesOnly]);
+  const selectedEntriesList = useMemo(() => {
+    return entries.filter((e) => selectedIds.has(e.id));
+  }, [entries, selectedIds]);
 
   return (
     <div className="app-container">
       <header className="header">
         <div className="header-top">
-          <h1>Srila Prabhupada Study Repository</h1>
+          <h1>Srila Prabhupada Study</h1>
           <button
             className="backup-btn"
-            onClick={exportBackupJSON}
-            title="Download JSON Backup"
+            onClick={() => exportJSON(entries, 'prabhupada-study-full-backup')}
+            title="Download Full Database Backup"
           >
-            Export JSON
+            Backup JSON
           </button>
         </div>
+
         <nav className="tabs">
           <button
             className={activeTab === 'entries' ? 'active' : ''}
             onClick={() => setActiveTab('entries')}
           >
-            Study Entries ({entries.length})
+            Entries ({entries.length})
           </button>
           <button
             className={activeTab === 'add' ? 'active' : ''}
-            onClick={() => setActiveTab('add')}
+            onClick={() => {
+              if (editingEntryId) resetForm();
+              setActiveTab('add');
+            }}
           >
-            + Quick Add
+            {editingEntryId ? '✎ Edit Entry' : '+ Quick Add'}
           </button>
           <button
             className={activeTab === 'revision' ? 'active' : ''}
@@ -343,9 +483,25 @@ export default function App() {
         </nav>
       </header>
 
-      {/* QUICK ADD TAB */}
+      {/* FORM TAB */}
       {activeTab === 'add' && (
         <form className="study-form" onSubmit={handleSaveEntry}>
+          <div className="form-header-bar">
+            <h2>{editingEntryId ? 'Edit Study Entry' : 'New Study Entry'}</h2>
+            {editingEntryId && (
+              <button
+                type="button"
+                className="cancel-btn"
+                onClick={() => {
+                  resetForm();
+                  setActiveTab('entries');
+                }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+
           <div className="form-group">
             <label>Book</label>
             <select
@@ -474,12 +630,12 @@ export default function App() {
           </div>
 
           <button type="submit" className="save-button" disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Study Entry'}
+            {isSaving ? 'Saving...' : editingEntryId ? 'Update Entry' : 'Save Study Entry'}
           </button>
         </form>
       )}
 
-      {/* ENTRIES & SEARCH TAB */}
+      {/* ENTRIES LIST TAB */}
       {activeTab === 'entries' && (
         <div className="entries-view">
           <div className="search-panel">
@@ -489,8 +645,8 @@ export default function App() {
                 className="search-input"
                 placeholder={
                   isRegexMode
-                    ? "Enter Regex (e.g. Krishna.*love)..."
-                    : "Search text across passages and reflections..."
+                    ? "Enter Regex pattern..."
+                    : "Search text across passages, tags, reflections..."
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -501,7 +657,7 @@ export default function App() {
                   checked={isRegexMode}
                   onChange={(e) => setIsRegexMode(e.target.checked)}
                 />
-                Regex Mode
+                Regex
               </label>
             </div>
 
@@ -543,80 +699,145 @@ export default function App() {
             {filterTag && (
               <div className="active-tag-filter">
                 <span>Filtered by: <strong>#{filterTag}</strong></span>
-                <button onClick={() => setFilterTag('')}>Clear Tag Filter</button>
+                <button onClick={() => setFilterTag('')}>✕ Clear</button>
               </div>
             )}
+
+            {/* SELECTION TOOLBAR */}
+            <div className="selection-toolbar">
+              <div className="select-left">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={
+                      filteredEntries.length > 0 &&
+                      selectedIds.size === filteredEntries.length
+                    }
+                    onChange={handleSelectAllFiltered}
+                  />
+                  <span>Select All ({filteredEntries.length})</span>
+                </label>
+              </div>
+
+              {selectedIds.size > 0 && (
+                <div className="export-actions">
+                  <span className="selected-count">{selectedIds.size} selected:</span>
+                  <button
+                    className="export-pill-btn"
+                    onClick={() => exportJSON(selectedEntriesList, 'selected-study-entries')}
+                  >
+                    JSON
+                  </button>
+                  <button
+                    className="export-pill-btn doc"
+                    onClick={() => exportDoc(selectedEntriesList, 'selected-study-notes')}
+                  >
+                    Doc
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="entries-list">
             {filteredEntries.length === 0 ? (
               <p className="empty-text">No matching entries found.</p>
             ) : (
-              filteredEntries.map((entry) => (
-                <div key={entry.id} className="entry-card">
-                  <div className="entry-header">
-                    <span className="badge-source">
-                      {entry.books?.title}
-                      {entry.canto_or_part ? ` · Canto ${entry.canto_or_part}` : ''}
-                      {entry.chapter ? ` · Ch ${entry.chapter}` : ''}
-                      {entry.verse_or_section ? ` · Verse ${entry.verse_or_section}` : ''}
-                    </span>
-                    <div className="card-controls">
-                      <span className="badge-type">{entry.passage_type}</span>
+              filteredEntries.map((entry) => {
+                const isSelected = selectedIds.has(entry.id);
+                return (
+                  <div
+                    key={entry.id}
+                    className={`entry-card ${isSelected ? 'selected' : ''}`}
+                  >
+                    <div className="entry-header">
+                      <div className="header-select-group">
+                        <input
+                          type="checkbox"
+                          className="entry-checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectEntry(entry.id)}
+                        />
+                        <span className="badge-source">
+                          {entry.books?.title}
+                          {entry.canto_or_part ? ` · Canto ${entry.canto_or_part}` : ''}
+                          {entry.chapter ? ` · Ch ${entry.chapter}` : ''}
+                          {entry.verse_or_section ? ` · Verse ${entry.verse_or_section}` : ''}
+                        </span>
+                      </div>
+
+                      <div className="card-controls">
+                        <span className="badge-type">{entry.passage_type}</span>
+                        <button
+                          className={`star-button ${entry.is_favorite ? 'starred' : ''}`}
+                          onClick={() => toggleFavorite(entry)}
+                          title="Toggle Favorite"
+                        >
+                          {entry.is_favorite ? '★' : '☆'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="passage-text">"{entry.selected_passage}"</p>
+
+                    {entry.entry_tags?.length > 0 && (
+                      <div className="tags-container">
+                        {entry.entry_tags.map((t, idx) => (
+                          <span
+                            key={idx}
+                            className="tag-chip clickable"
+                            onClick={() => setFilterTag(t.tags?.name)}
+                          >
+                            #{t.tags?.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {entry.reflection && (
+                      <div className="section-block reflection-block">
+                        <strong>Reflection:</strong>
+                        <p>{entry.reflection}</p>
+                      </div>
+                    )}
+
+                    {entry.action_point && (
+                      <div className="section-block action-block">
+                        <strong>Action Point:</strong>
+                        <p>{entry.action_point}</p>
+                      </div>
+                    )}
+
+                    {entry.question && (
+                      <div className="section-block question-block">
+                        <strong>Question:</strong>
+                        <p>{entry.question}</p>
+                      </div>
+                    )}
+
+                    <div className="card-footer-actions">
                       <button
-                        className={`star-button ${entry.is_favorite ? 'starred' : ''}`}
-                        onClick={() => toggleFavorite(entry)}
-                        title="Toggle Favorite"
+                        className="entry-action-btn edit"
+                        onClick={() => startEditing(entry)}
                       >
-                        {entry.is_favorite ? '★' : '☆'}
+                        ✎ Edit
+                      </button>
+                      <button
+                        className="entry-action-btn delete"
+                        onClick={() => handleDeleteEntry(entry.id)}
+                      >
+                        🗑 Delete
                       </button>
                     </div>
                   </div>
-
-                  <p className="passage-text">"{entry.selected_passage}"</p>
-
-                  {entry.entry_tags?.length > 0 && (
-                    <div className="tags-container">
-                      {entry.entry_tags.map((t, idx) => (
-                        <span
-                          key={idx}
-                          className="tag-chip clickable"
-                          onClick={() => setFilterTag(t.tags?.name)}
-                        >
-                          #{t.tags?.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {entry.reflection && (
-                    <div className="section-block reflection-block">
-                      <strong>Reflection:</strong>
-                      <p>{entry.reflection}</p>
-                    </div>
-                  )}
-
-                  {entry.action_point && (
-                    <div className="section-block action-block">
-                      <strong>Action Point:</strong>
-                      <p>{entry.action_point}</p>
-                    </div>
-                  )}
-
-                  {entry.question && (
-                    <div className="section-block question-block">
-                      <strong>Question:</strong>
-                      <p>{entry.question}</p>
-                    </div>
-                  )}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
       )}
 
-      {/* REVISION / RANDOM STUDY TAB */}
+      {/* REVISION TAB */}
       {activeTab === 'revision' && (
         <div className="revision-view">
           <div className="revision-controls">
@@ -624,7 +845,7 @@ export default function App() {
               className="action-button primary"
               onClick={() => pickRandomEntry(false)}
             >
-              Give Me Something to Study
+              Study Random
             </button>
             <button
               className="action-button secondary"
@@ -648,7 +869,6 @@ export default function App() {
                   <button
                     className={`star-button ${randomEntry.is_favorite ? 'starred' : ''}`}
                     onClick={() => toggleFavorite(randomEntry)}
-                    title="Toggle Favorite"
                   >
                     {randomEntry.is_favorite ? '★' : '☆'}
                   </button>
@@ -671,14 +891,14 @@ export default function App() {
 
               {randomEntry.reflection && (
                 <div className="section-block reflection-block">
-                  <strong>My Reflection:</strong>
+                  <strong>Reflection:</strong>
                   <p>{randomEntry.reflection}</p>
                 </div>
               )}
 
               {randomEntry.action_point && (
                 <div className="section-block action-block">
-                  <strong>Practical Action Point:</strong>
+                  <strong>Action Point:</strong>
                   <p>{randomEntry.action_point}</p>
                 </div>
               )}
@@ -691,7 +911,7 @@ export default function App() {
               )}
             </div>
           ) : (
-            <p className="empty-text">Click a button above to load a random entry for study.</p>
+            <p className="empty-text">Click a button above to review an entry.</p>
           )}
         </div>
       )}
@@ -699,50 +919,35 @@ export default function App() {
       {/* REGEX HELP GUIDE TAB */}
       {activeTab === 'regex-help' && (
         <div className="guide-card">
-          <h2>Regular Expression (Regex) Guide</h2>
-          <p>
-            Regular expressions allow you to search with flexible patterns rather than
-            strict identical words.
-          </p>
-
+          <h2>Regular Expression Guide</h2>
           <table className="guide-table">
             <thead>
               <tr>
                 <th>Pattern</th>
                 <th>Meaning</th>
-                <th>Example</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td><code>Krishna.*love</code></td>
-                <td>Matches "Krishna" followed anywhere later by "love"</td>
-                <td>"...Krishna gives His pure love..."</td>
+                <td>Matches "Krishna" followed anywhere by "love"</td>
               </tr>
               <tr>
                 <td><code>control|restrain</code></td>
-                <td>Matches either "control" OR "restrain"</td>
-                <td>Finds verses with either synonym</td>
+                <td>Matches either word</td>
               </tr>
               <tr>
                 <td><code>^The</code></td>
-                <td>Passages that start with "The"</td>
-                <td>Beginning-of-text anchor</td>
+                <td>Passages that begin with "The"</td>
               </tr>
               <tr>
                 <td><code>mind\b</code></td>
-                <td>Matches the exact word "mind", not "mindful"</td>
-                <td>Word boundary match</td>
-              </tr>
-              <tr>
-                <td><code>bhakti[a-z]*</code></td>
-                <td>Matches "bhakti", "bhaktis", "bhaktivedanta"</td>
-                <td>Prefix wildcard match</td>
+                <td>Exact word "mind", not "mindful"</td>
               </tr>
             </tbody>
           </table>
           <button className="save-button" onClick={() => setActiveTab('entries')}>
-            Back to Study Entries
+            Back to Entries
           </button>
         </div>
       )}

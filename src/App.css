@@ -11,7 +11,7 @@
   background-color: #f8fafc;
 }
 
-/* Header & Navigation */
+/* Header & Security Lock */
 .header-top {
   display: flex;
   justify-content: space-between;
@@ -29,6 +29,28 @@
   text-overflow: ellipsis;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lock-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lock-btn.unlocked {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
 .backup-btn {
   background: #0f172a;
   color: #ffffff;
@@ -41,6 +63,7 @@
   white-space: nowrap;
 }
 
+/* Horizontal Tabs */
 .tabs {
   display: flex;
   overflow-x: auto;
@@ -72,7 +95,7 @@
   color: #ffffff;
 }
 
-/* Form Styles */
+/* Form Styles & Book Selector Row */
 .study-form {
   background: #ffffff;
   padding: 16px;
@@ -113,6 +136,27 @@
   font-size: 0.82rem;
   font-weight: 600;
   color: #475569;
+}
+
+.book-select-row {
+  display: flex;
+  gap: 8px;
+}
+
+.book-select-row select {
+  flex: 1;
+}
+
+.add-book-inline-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1e40af;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .form-row {
@@ -194,7 +238,7 @@ input:focus, select:focus, textarea:focus {
   color: #0f172a;
 }
 
-/* Search Panel */
+/* Search Panel & Selection Toolbar */
 .search-panel {
   background: #ffffff;
   padding: 12px;
@@ -251,7 +295,6 @@ input:focus, select:focus, textarea:focus {
   font-weight: 600;
 }
 
-/* Selection Toolbar */
 .selection-toolbar {
   display: flex;
   justify-content: space-between;
@@ -296,7 +339,7 @@ input:focus, select:focus, textarea:focus {
   background: #0284c7;
 }
 
-/* Entry Cards */
+/* Entry Cards & Text Whitespace Preservation */
 .entries-list {
   display: flex;
   flex-direction: column;
@@ -373,12 +416,15 @@ input:focus, select:focus, textarea:focus {
   color: #eab308;
 }
 
+/* MULTI-LINE & NEWLINE PRESERVATION */
 .passage-text {
   font-style: italic;
   font-size: 0.95rem;
-  line-height: 1.5;
+  line-height: 1.55;
   margin: 8px 0;
   color: #334155;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .tags-container {
@@ -407,8 +453,12 @@ input:focus, select:focus, textarea:focus {
   font-size: 0.85rem;
 }
 
+/* MULTI-LINE PRESERVATION FOR REFLECTIONS, ACTIONS, QUESTIONS */
 .section-block p {
   margin: 3px 0 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
 }
 
 .reflection-block {
@@ -455,6 +505,81 @@ input:focus, select:focus, textarea:focus {
   background: #fef2f2;
 }
 
+/* Tag Management Screen */
+.tags-manager-card {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.tags-manager-card h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+  color: #0f172a;
+}
+
+.tag-list-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.tag-row-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.tag-badge-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-count {
+  font-size: 0.75rem;
+  background: #e2e8f0;
+  color: #475569;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.tag-row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.tag-btn {
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tag-btn.rename {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.tag-btn.merge {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.tag-btn.delete {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 /* Revision Mode */
 .revision-controls {
   display: flex;
@@ -492,6 +617,45 @@ input:focus, select:focus, textarea:focus {
   margin: 10px 0;
   padding-left: 10px;
   border-left: 3px solid #6366f1;
+}
+
+/* Modals (PIN & Add Book) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 100;
+}
+
+.modal-box {
+  background: #ffffff;
+  width: 100%;
+  max-width: 380px;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-box h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 
 .guide-card {

@@ -88,32 +88,16 @@ export default function App() {
   // Security Lock Handlers
   function handleUnlockAttempt(e) {
     e.preventDefault();
-    const storedPin = localStorage.getItem('study_repo_pin');
+    const masterPin = import.meta.env.VITE_APP_PIN;
 
-    if (!storedPin) {
-      // First time initialization: set the PIN
-      if (pinInput.trim().length < 4) {
-        setPinError('PIN must be at least 4 digits');
-        return;
-      }
-      localStorage.setItem('study_repo_pin', pinInput.trim());
+    if (pinInput.trim() === masterPin) {
       setIsUnlocked(true);
       sessionStorage.setItem('study_unlocked', 'true');
       setShowPinModal(false);
       setPinInput('');
       setPinError('');
-      alert('Security PIN established.');
     } else {
-      // Verify existing PIN
-      if (pinInput.trim() === storedPin) {
-        setIsUnlocked(true);
-        sessionStorage.setItem('study_unlocked', 'true');
-        setShowPinModal(false);
-        setPinInput('');
-        setPinError('');
-      } else {
-        setPinError('Incorrect PIN. Please try again.');
-      }
+      setPinError('Incorrect PIN. Access denied.');
     }
   }
 
@@ -1232,20 +1216,14 @@ export default function App() {
       {showPinModal && (
         <div className="modal-overlay">
           <form className="modal-box" onSubmit={handleUnlockAttempt}>
-            <h3>
-              {localStorage.getItem('study_repo_pin')
-                ? 'Enter Security PIN'
-                : 'Set a 4-Digit Security PIN'}
-            </h3>
+            <h3>Enter Security PIN</h3>
             <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b' }}>
-              {localStorage.getItem('study_repo_pin')
-                ? 'Unlock to add, edit, or delete study entries.'
-                : 'Create a PIN to protect your repository from unauthorized edits.'}
+              Enter your master passcode to add, edit, or delete records.
             </p>
             <input
               type="password"
               maxLength={8}
-              placeholder="e.g. 1080"
+              placeholder="Enter PIN"
               value={pinInput}
               onChange={(e) => setPinInput(e.target.value)}
               required
@@ -1261,7 +1239,7 @@ export default function App() {
                 Cancel
               </button>
               <button type="submit" className="export-pill-btn">
-                {localStorage.getItem('study_repo_pin') ? 'Unlock' : 'Save PIN'}
+                Unlock
               </button>
             </div>
           </form>
